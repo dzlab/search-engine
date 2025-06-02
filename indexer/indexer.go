@@ -1,11 +1,8 @@
 package indexer
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -124,109 +121,4 @@ func (i *Indexer) Close() error {
 	defer i.mu.Unlock()
 	log.Printf("Closing bleve index at %s", i.indexPath)
 	return i.index.Close()
-}
-
-// Structs for request bodies
-type IndexRequest struct {
-	ID   string      `json:"id"`
-	Data interface{} `json:"data"` // Use interface{} to accept any JSON object
-}
-
-type DeleteRequest struct {
-	ID string `json:"id"`
-}
-
-// HandleIndexRequest is an HTTP handler for adding/updating documents.
-func (i *Indexer) HandleIndexRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading index request body: %v", err)
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	var req IndexRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		log.Printf("Error unmarshalling index request body: %v", err)
-		http.Error(w, "Error parsing request body: invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	if req.ID == "" {
-		http.Error(w, "Document ID is required", http.StatusBadRequest)
-		return
-	}
-
-	if err := i.IndexDocument(req.ID, req.Data); err != nil {
-		log.Printf("Error indexing document %s: %v", req.ID, err)
-		http.Error(w, fmt.Sprintf("Failed to index document %s", req.ID), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Document %s indexed successfully", req.ID)))
-	log.Printf("Handled index request for document %s", req.ID)
-}
-
-// HandleDeleteRequest is an HTTP handler for deleting documents.
-func (i *Indexer) HandleDeleteRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost { // Using POST as discussed, could be DELETE
-		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading delete request body: %v", err)
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	var req DeleteRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		log.Printf("Error unmarshalling delete request body: %v", err)
-		http.Error(w, "Error parsing request body: invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	if req.ID == "" {
-		http.Error(w, "Document ID is required", http.StatusBadRequest)
-		return
-	}
-
-	if err := i.DeleteDocument(req.ID); err != nil {
-		log.Printf("Error deleting document %s: %v", req.ID, err)
-		http.Error(w, fmt.Sprintf("Failed to delete document %s", req.ID), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Document %s deleted successfully", req.ID)))
-	log.Printf("Handled delete request for document %s", req.ID)
-}
-
-// HandleCommitRequest is an HTTP handler for committing and uploading index segments.
-func (i *Indexer) HandleCommitRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	log.Println("Received commit and upload request.")
-	if err := i.CommitAndUpload(); err != nil {
-		log.Printf("Error during commit and upload: %v", err)
-		http.Error(w, "Failed to commit and upload index", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Index committed and uploaded successfully"))
-	log.Println("Handled commit and upload request.")
 }
