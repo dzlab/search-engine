@@ -21,20 +21,20 @@ jobs:
 
       - name: Run tests in broker
         run: go test ./...
-        working-directory: ./search-engine/broker
+        working-directory: ./broker
 
       - name: Run tests in control_plane
         run: go test ./...
-        working-directory: ./search-engine/control_plane
+        working-directory: ./control_plane
 
       - name: Run tests in indexer
         run: go test ./...
-        working-directory: ./search-engine/indexer
+        working-directory: ./indexer
 
       - name: Run tests in query_understanding
         run: go test ./...
-        working-directory: ./search-engine/query_understanding
+        working-directory: ./query_understanding
 
       - name: Run tests in searcher
         run: go test ./...
-        working-directory: ./search-engine/searcher
+        working-directory: ./searcher
