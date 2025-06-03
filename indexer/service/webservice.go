@@ -20,6 +20,10 @@ type DeleteRequest struct {
 	ID string `json:"id"`
 }
 
+// BulkIndexRequest represents a request to index multiple documents in a batch.
+// It's a map where keys are document IDs and values are the document data.
+type BulkIndexRequest map[string]interface{}
+
 // WebService handles HTTP requests for the indexer.
 type WebService struct {
 	indexer    *indexer.Indexer
@@ -40,6 +44,7 @@ func (ws *WebService) Start() error {
 	http.HandleFunc("/index", ws.HandleIndexRequest)
 	http.HandleFunc("/delete", ws.HandleDeleteRequest)
 	http.HandleFunc("/commit", ws.HandleCommitRequest)
+	http.HandleFunc("/bulk_index", ws.HandleBulkIndexRequest) // New endpoint for bulk indexing
 
 	log.Printf("Web service listening on %s", ws.listenAddr)
 	if err := http.ListenAndServe(ws.listenAddr, nil); err != nil {
@@ -122,6 +127,44 @@ func (ws *WebService) HandleDeleteRequest(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Document %s deleted successfully", req.ID)))
 	log.Printf("Handled delete request for document %s", req.ID)
+}
+
+// HandleBulkIndexRequest is an HTTP handler for bulk adding/updating documents.
+func (ws *WebService) HandleBulkIndexRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading bulk index request body: %v", err)
+		http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var req BulkIndexRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("Error unmarshalling bulk index request body: %v", err)
+		http.Error(w, "Error parsing request body: invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if len(req) == 0 {
+		http.Error(w, "Request body is empty", http.StatusBadRequest)
+		return
+	}
+
+	if err := ws.indexer.BulkIndexDocuments(req); err != nil {
+		log.Printf("Error bulk indexing documents: %v", err)
+		http.Error(w, "Failed to bulk index documents", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Successfully processed bulk index request for %d documents", len(req))))
+	log.Printf("Handled bulk index request for %d documents", len(req))
 }
 
 // HandleCommitRequest is an HTTP handler for committing and uploading index segments.
