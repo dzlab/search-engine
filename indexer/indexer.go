@@ -84,6 +84,28 @@ func (i *Indexer) DeleteDocument(id string) error {
 	return nil
 }
 
+// BulkIndexDocuments adds or updates multiple documents in the index using a batch.
+func (i *Indexer) BulkIndexDocuments(docs map[string]interface{}) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	log.Printf("Attempting to bulk index %d documents", len(docs))
+	batch := i.index.NewBatch()
+
+	for id, data := range docs {
+		log.Printf("Adding document %s to batch", id)
+		batch.Index(id, data)
+	}
+
+	if err := i.index.Batch(batch); err != nil {
+		log.Printf("Failed to execute batch index operation: %v", err)
+		return fmt.Errorf("failed to execute batch index operation: %w", err)
+	}
+
+	log.Printf("Successfully processed batch for %d documents", len(docs))
+	return nil
+}
+
 // CommitAndUpload commits the current index changes and uploads the index state.
 // In Bleve, indexing operations are eventually consistent. A 'commit' might mean
 // waiting for pending operations or creating a snapshot point. Uploading means
