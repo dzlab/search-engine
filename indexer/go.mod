@@ -5,9 +5,13 @@ go 1.23
 toolchain go1.23.1
 
 require (
+	github.com/aws/aws-sdk-go v1.50.28
+	github.com/blevesearch/bleve/v2 v2.5.1
+)
+
+require (
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
-	github.com/blevesearch/bleve/v2 v2.5.1 // indirect
 	github.com/blevesearch/bleve_index_api v1.2.8 // indirect
 	github.com/blevesearch/geo v0.2.3 // indirect
 	github.com/blevesearch/go-faiss v1.0.25 // indirect
@@ -27,6 +31,7 @@ require (
 	github.com/blevesearch/zapx/v16 v16.2.3 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v0.0.0-20171115153421-f7279a603ede // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	go.etcd.io/bbolt v1.4.0 // indirect
