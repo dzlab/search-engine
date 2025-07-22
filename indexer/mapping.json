@@ -1,0 +1,112 @@
+{
+  "type": "bleve.IndexMapping",
+  "default_mapping": {
+    "dynamic": true,
+    "default_analyzer": "en",
+    "properties": {
+      "_all": {
+        "enabled": true,
+        "store": false
+      },
+      "default": {
+        "type": "text",
+        "analyzer": "en",
+        "store": true,
+        "include_term_vectors": true,
+        "include_in_all": true
+      }
+    }
+  },
+  "type_field": "_type",
+  "default_type": "document",
+  "doc_values_dynamic": false,
+  "index_dynamic": true,
+  "store_dynamic": true,
+  "analysis": {
+    "analyzers": {
+      "en": {
+        "type": "custom",
+        "char_filters": [],
+        "tokenizer": "standard",
+        "token_filters": [
+          "lower",
+          "stop_en",
+          "stem_en"
+        ]
+      }
+    },
+    "char_filters": {},
+    "token_filters": {
+      "stop_en": {
+        "type": "stop",
+        "stopwords": [
+          "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these", "they", "this", "to", "was", "will", "with"
+        ]
+      },
+      "stem_en": {
+        "type": "stemmer",
+        "tag": "en"
+      }
+    },
+    "tokenizers": {}
+  },
+  "types": {
+    "document": {
+      "enabled": true,
+      "dynamic": true,
+      "properties": {
+        "title": {
+          "type": "text",
+          "analyzer": "en",
+          "boost": 2.0,
+          "store": true,
+          "include_term_vectors": true,
+          "include_in_all": true
+        },
+        "content": {
+          "type": "text",
+          "analyzer": "en",
+          "store": true,
+          "include_term_vectors": true,
+          "include_in_all": true
+        },
+        "tags": {
+          "type": "keyword",
+          "store": true,
+          "include_in_all": true
+        },
+        "category": {
+          "type": "keyword",
+          "store": true,
+          "include_in_all": true
+        },
+        "price": {
+          "type": "number",
+          "store": true,
+          "include_in_all": true
+        },
+        "views": {
+          "type": "number",
+          "store": true,
+          "include_in_all": true
+        },
+        "created_at": {
+          "type": "datetime",
+          "store": true,
+          "include_in_all": true
+        },
+        "location": {
+          "type": "geopoint",
+          "store": true,
+          "include_in_all": true
+        },
+        "url": {
+          "type": "keyword",
+          "store": true,
+          "include_in_all": false,
+          "index": false
+        }
+      }
+    }
+  }
+}

@@ -28,13 +28,13 @@ func NewIndexer(indexPath string, storage IndexSegmentStorage) (*Indexer, error)
 	// Open or create the Bleve index
 	index, err := bleve.Open(indexPath)
 	if err == bleve.ErrorIndexPathDoesNotExist {
-		log.Printf("Creating new index at %s", indexPath)
-		// Define a simple mapping for demonstration. A real mapping would be complex.
-		mapping := bleve.NewIndexMapping()
-		// Example text field mapping
-		textFieldMapping := bleve.NewTextFieldMapping()
-		textFieldMapping.Analyzer = "standard"
-		mapping.DefaultMapping.AddFieldMapping(textFieldMapping)
+		log.Printf("Creating new index at %s using mapping from mapping.json", indexPath)
+		mapping, err := LoadIndexMapping("search-engine/indexer/mapping.json")
+		if err != nil {
+			log.Printf("Failed to load index mapping from file, attempting to create default mapping: %v", err)
+			// Fallback to a default mapping if file loading fails
+			mapping = CreateDefaultIndexMapping()
+		}
 
 		index, err = bleve.New(indexPath, mapping)
 		if err != nil {
