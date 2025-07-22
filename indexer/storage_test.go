@@ -22,6 +22,11 @@ func TestLocalFileStorage_New(t *testing.T) {
 		}
 		defer os.RemoveAll(nonExistentDir) // Schedule cleanup
 
+		// Attempt to create storage in the same directory again, which should now exist but might not be writable
+		// This is to ensure that even if the directory exists, the permissions are checked correctly on subsequent operations.
+		// However, for the initial creation, the primary check is if the directory can be created and accessed.
+		// The test `invalid_directory_permissions` below specifically targets the permission aspect.
+
 		// Verify the directory was created
 		if _, err := os.Stat(nonExistentDir); os.IsNotExist(err) {
 			t.Errorf("Expected directory %s to be created, but it was not", nonExistentDir)
@@ -51,19 +56,26 @@ func TestLocalFileStorage_New(t *testing.T) {
 	t.Run("invalid_directory_permissions", func(t *testing.T) {
 		// Attempt to create in a directory where we don't have write permissions
 		// This is system dependent, but often '/' or '/root' can be used for testing this.
-		// On Unix-like systems, '/root' is typically protected.
-		invalidDir := "/root/unwritable_dir_test" // This path is likely unwritable for a normal user
-		if _, err := os.Stat(invalidDir); !os.IsNotExist(err) {
-			// If it exists and is a directory, we might not be able to remove it either.
-			// For simplicity, we'll just try to proceed. If MkdirAll fails due to permissions,
-			// the test will correctly catch it.
+		// Create a temporary directory and remove write permissions to simulate a permission error.
+		tempDirForPermissionsTest, err := os.MkdirTemp("", "unwritable_dir_test")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir for permission test: %v", err)
 		}
+		// Remove write permissions for the owner, group, and others.
+		if err := os.Chmod(tempDirForPermissionsTest, 0555); err != nil { // Read and execute only
+			t.Fatalf("Failed to remove write permissions from temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDirForPermissionsTest) // Schedule cleanup
 
-		_, err := NewLocalFileStorage(invalidDir)
+		_, err = NewLocalFileStorage(tempDirForPermissionsTest)
 		if err == nil {
-			t.Errorf("Expected an error when creating storage in a potentially unwritable directory %s, but got none", invalidDir)
+			t.Errorf("Expected an error when creating storage in a directory without write permissions, but got none")
 		}
-		// We expect an error, so no need to clean up invalidDir if it failed to create.
+		// Check if the error message indicates a permission issue.
+		// The exact error message might vary, so we check for common indicators.
+		if err == nil || !strings.Contains(err.Error(), "does not have write permissions") {
+			t.Errorf("Expected an error indicating lack of write permissions, but got: %v", err)
+		}
 	})
 }
 

@@ -135,11 +135,47 @@ type LocalFileStorage struct {
 
 // NewLocalFileStorage creates a new LocalFileStorage instance, ensuring the directory exists.
 func NewLocalFileStorage(dir string) (*LocalFileStorage, error) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create storage directory %s: %w", dir, err)
+	// Check if the directory exists. If not, attempt to create it.
+	// If it exists, check if it's a directory and if we have write permissions.
+	fileInfo, err := os.Stat(dir)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Directory does not exist, attempt to create it.
+			// Before creating, check if the parent directory has write permissions.
+			parentDir := filepath.Dir(dir)
+			parentInfo, permErr := os.Stat(parentDir)
+			if permErr != nil {
+				// If we can't even stat the parent, something is wrong.
+				return nil, fmt.Errorf("failed to access parent directory %s: %w", parentDir, permErr)
+			}
+			// Check if parent is a directory and has write permission for the owner.
+			if !parentInfo.IsDir() || parentInfo.Mode().Perm()&0200 == 0 {
+				return nil, fmt.Errorf("parent directory %s lacks write permissions", parentDir)
+			}
+
+			// Attempt to create the directory.
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				// MkdirAll might fail for reasons other than permissions, but if it fails and the error indicates permission issues, surface that.
+				// A common way to check this is if the error message contains "permission denied" or similar.
+				// For simplicity, we'll return the error from MkdirAll. If it's permission related, the error message should indicate it.
+				return nil, fmt.Errorf("failed to create storage directory %s: %w", dir, err)
+			}
+		} else {
+			// An error occurred that is not 'not exists'. Return it.
+			return nil, fmt.Errorf("failed to stat directory %s: %w", dir, err)
+		}
+	} else {
+		// Directory exists. Check if it's a directory and if we have write permissions.
+		if !fileInfo.IsDir() {
+			return nil, fmt.Errorf("path %s exists but is not a directory", dir)
+		}
+		// Check for write permission for the owner.
+		if fileInfo.Mode().Perm()&0200 == 0 {
+			return nil, fmt.Errorf("directory %s does not have write permissions", dir)
 		}
 	}
+
 	return &LocalFileStorage{storageDir: dir}, nil
 }
 
