@@ -13,6 +13,18 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+const (
+	maxS3UploadRetries = 3               // Number of retries for S3 uploads
+	initialS3Backoff   = 1 * time.Second // Initial backoff duration
+	maxS3Backoff       = 8 * time.Second // Maximum backoff duration
+)
+
+const (
+	maxS3UploadRetries = 3               // Number of retries for S3 uploads
+	initialS3Backoff   = 1 * time.Second // Initial backoff duration
+	maxS3Backoff       = 8 * time.Second // Maximum backoff duration
+)
+
 // IndexSegmentStorage defines the interface for storing index segments.
 // In a real system, this would interact with S3, GCS, etc.
 type IndexSegmentStorage interface {
@@ -107,13 +119,39 @@ func (s *S3Storage) UploadSegment(segmentPath string) error {
 
 		log.Printf("Uploading %s to s3://%s/%s", path, s.bucket, s3Key)
 
-		_, err = s.uploader.Upload(&s3manager.UploadInput{
-			Bucket: aws.String(s.bucket),
-			Key:    aws.String(s3Key),
-			Body:   file,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to upload file %s to S3 %s/%s: %w", path, s.bucket, s3Key, err)
+		var uploadErr error
+		for attempt := 0; attempt < maxS3UploadRetries; attempt++ {
+			// We need to seek to the beginning of the file for each retry attempt
+			// because S3 uploader consumes the reader.
+			_, err := file.Seek(0, io.SeekStart)
+			if err != nil {
+				// This is a non-recoverable error for this file, so we fail fast.
+				return fmt.Errorf("failed to seek file %s to start for retry: %w", path, err)
+			}
+
+			_, uploadErr = s.uploader.Upload(&s3manager.UploadInput{
+				Bucket: aws.String(s.bucket),
+				Key:    aws.String(s3Key),
+				Body:   file,
+			})
+
+			if uploadErr == nil {
+				break // Success
+			}
+
+			log.Printf("Attempt %d/%d failed to upload file %s to S3: %v", attempt+1, maxS3UploadRetries, path, uploadErr)
+			if attempt < maxS3UploadRetries-1 {
+				backoff := time.Duration(1<<attempt) * initialS3Backoff
+				if backoff > maxS3Backoff {
+					backoff = maxS3Backoff
+				}
+				log.Printf("Retrying in %v...", backoff)
+				time.Sleep(backoff)
+			}
+		}
+
+		if uploadErr != nil {
+			return fmt.Errorf("failed to upload file %s to S3 after %d attempts: %w", path, maxS3UploadRetries, uploadErr)
 		}
 
 		return nil
