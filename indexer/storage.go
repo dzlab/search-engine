@@ -19,12 +19,6 @@ const (
 	maxS3Backoff       = 8 * time.Second // Maximum backoff duration
 )
 
-const (
-	maxS3UploadRetries = 3               // Number of retries for S3 uploads
-	initialS3Backoff   = 1 * time.Second // Initial backoff duration
-	maxS3Backoff       = 8 * time.Second // Maximum backoff duration
-)
-
 // IndexSegmentStorage defines the interface for storing index segments.
 // In a real system, this would interact with S3, GCS, etc.
 type IndexSegmentStorage interface {
