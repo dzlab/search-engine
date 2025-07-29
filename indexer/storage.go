@@ -13,6 +13,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+const (
+	maxS3UploadRetries = 3               // Number of retries for S3 uploads
+	initialS3Backoff   = 1 * time.Second // Initial backoff duration
+	maxS3Backoff       = 8 * time.Second // Maximum backoff duration
+)
+
 // IndexSegmentStorage defines the interface for storing index segments.
 // In a real system, this would interact with S3, GCS, etc.
 type IndexSegmentStorage interface {
@@ -49,6 +55,45 @@ func NewS3Storage(bucketName string) (*S3Storage, error) {
 		uploader: uploader,
 		bucket:   bucketName,
 	}, nil
+}
+
+// uploadFileWithRetry handles the S3 upload of a single file with retry logic.
+func (s *S3Storage) uploadFileWithRetry(filePath, s3Key string, file io.ReadSeeker) error {
+	var uploadErr error
+	for attempt := 0; attempt < maxS3UploadRetries; attempt++ {
+		// We need to seek to the beginning of the file for each retry attempt
+		// because S3 uploader consumes the reader.
+		_, err := file.Seek(0, io.SeekStart)
+		if err != nil {
+			// This is a non-recoverable error for this file, so we fail fast.
+			return fmt.Errorf("failed to seek file %s to start for retry: %w", filePath, err)
+		}
+
+		_, uploadErr = s.uploader.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String(s3Key),
+			Body:   file,
+		})
+
+		if uploadErr == nil {
+			break // Success
+		}
+
+		log.Printf("Attempt %d/%d failed to upload file %s to S3: %v", attempt+1, maxS3UploadRetries, filePath, uploadErr)
+		if attempt < maxS3UploadRetries-1 {
+			backoff := time.Duration(1<<attempt) * initialS3Backoff
+			if backoff > maxS3Backoff {
+				backoff = maxS3Backoff
+			}
+			log.Printf("Retrying in %v...", backoff)
+			time.Sleep(backoff)
+		}
+	}
+
+	if uploadErr != nil {
+		return fmt.Errorf("failed to upload file %s to S3 after %d attempts: %w", filePath, maxS3UploadRetries, uploadErr)
+	}
+	return nil
 }
 
 // UploadSegment uploads the contents of the segment directory to S3.
@@ -107,13 +152,8 @@ func (s *S3Storage) UploadSegment(segmentPath string) error {
 
 		log.Printf("Uploading %s to s3://%s/%s", path, s.bucket, s3Key)
 
-		_, err = s.uploader.Upload(&s3manager.UploadInput{
-			Bucket: aws.String(s.bucket),
-			Key:    aws.String(s3Key),
-			Body:   file,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to upload file %s to S3 %s/%s: %w", path, s.bucket, s3Key, err)
+		if err := s.uploadFileWithRetry(path, s3Key, file); err != nil {
+			return err
 		}
 
 		return nil
@@ -263,11 +303,6 @@ func copyFile(src, dst string) error {
 	}
 	defer destinationFile.Close()
 
-	_, err = os.Stdout.Write(nil) // This line is likely a leftover or placeholder and should be removed or replaced if it has a purpose.
-	// However, to keep the diff minimal, I will comment it out and assume it's not critical for functionality.
-	// If it was intended for piping or specific I/O, it needs clarification.
-	// For now, we assume the goal is a standard file copy.
-
 	// Use io.Copy for efficient file copying
 	_, err = io.Copy(destinationFile, sourceFile)
 	if err != nil {
@@ -285,12 +320,3 @@ func copyFile(src, dst string) error {
 
 	return nil
 }
-
-// It seems like `io` and `os.Stdout.Write(nil)` are used without import.
-// Let's add the `io` import and remove the seemingly unnecessary `os.Stdout.Write(nil)`.
-// For the purpose of this edit, I will assume `io` needs to be imported.
-
-// *** NOTE: The following addition of `io` import should be done in `storage.go` file ***
-// (This is a comment to guide the user, as I cannot directly edit imports with the current tool.)
-// Add `import "io"` at the top of the file, alongside other imports.
-// Remove the line `_, err = os.Stdout.Write(nil)` inside `copyFile`.
