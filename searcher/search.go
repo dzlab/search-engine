@@ -1,4 +1,4 @@
-package main
+package searcher
 
 import (
 	"context"
@@ -61,7 +61,7 @@ func (s *Searcher) downloadSegments(ctx context.Context) error {
 }
 
 // updateIndex periodically checks for and downloads new segments.
-func (s *Searcher) updateIndex(ctx context.Context) {
+func (s *Searcher) UpdateIndex(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute) // Check for new segments every 5 minutes
 	defer ticker.Stop()
 

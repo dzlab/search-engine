@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"searcher"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +14,7 @@ const (
 
 func main() {
 	// Initialize Searcher
-	searcher, err := NewSearcher()
+	svc, err := searcher.NewSearcher()
 	if err != nil {
 		log.Fatalf("Failed to initialize Searcher: %v", err)
 	}
@@ -22,11 +23,11 @@ func main() {
 	defer cancel()
 
 	// Start routine to update index segments
-	go searcher.updateIndex(ctx)
+	go svc.UpdateIndex(ctx)
 
 	// Set up Gin router
 	router := gin.Default()
-	router.GET("/search", searcher.SearchHandler)
+	router.GET("/search", svc.SearchHandler)
 
 	log.Printf("Searcher Service started on port %s", port)
 	if err := router.Run(port); err != nil {
