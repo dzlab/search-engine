@@ -145,14 +145,19 @@ func (b *Broker) Search(ctx context.Context, rawQuery RawQuery) ([]SearchResult,
 	wg.Wait()
 	close(errChan) // Close the error channel once all goroutines are done sending.
 
-	// Check if any searcher encountered an error.
-	select {
-	case searcherErr := <-errChan:
-		// An error occurred in at least one searcher.
-		// For this implementation, we acknowledge the error but proceed with available results.
-		log.Printf("Warning: one or more searchers returned an error: %v", searcherErr)
-	default:
-		// No errors were reported by any searcher.
+	// Collect all errors reported by searchers.
+	var searcherErrors []error
+	for err := range errChan {
+		if err != nil {
+			searcherErrors = append(searcherErrors, err)
+		}
+	}
+
+	if len(searcherErrors) > 0 {
+		// Log all collected non-nil errors.
+		for _, err := range searcherErrors {
+			log.Printf("Warning: a searcher returned an error: %v", err)
+		}
 	}
 
 	// 3. Merge and de-duplicate results from Searchers.
