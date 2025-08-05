@@ -1,4 +1,4 @@
-package query_understanding
+package config
 
 // IndexSchema represents the configuration for an index schema.
 type IndexSchema struct {

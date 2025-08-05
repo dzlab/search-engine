@@ -1,4 +1,4 @@
-package query_understanding
+package config
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func LoadConfig(filePath string) (*Configuration, error) {
 	}
 
 	// Schema Validation
-	if err := validateConfiguration(&config); err != nil {
+	if err := ValidateConfiguration(&config); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -30,7 +30,7 @@ func LoadConfig(filePath string) (*Configuration, error) {
 }
 
 // validateConfiguration performs validation on the loaded Configuration struct.
-func validateConfiguration(cfg *Configuration) error {
+func ValidateConfiguration(cfg *Configuration) error {
 	if cfg == nil {
 		return fmt.Errorf("configuration cannot be nil")
 	}
