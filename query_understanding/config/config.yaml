@@ -1,0 +1,78 @@
+index_schemas:
+  - name: products
+    fields:
+      - name: id
+        type: string
+        indexed: true
+        stored: true
+      - name: name
+        type: string
+        indexed: true
+        stored: true
+      - name: description
+        type: string
+        indexed: true
+        stored: true
+      - name: price
+        type: float
+        indexed: true
+        stored: true
+      - name: category_id
+        type: string
+        indexed: true
+        stored: true
+    options:
+      tokenizer: standard
+      case_sensitive: false
+
+  - name: articles
+    fields:
+      - name: id
+        type: string
+        indexed: true
+        stored: true
+      - name: title
+        type: string
+        indexed: true
+        stored: true
+      - name: content
+        type: string
+        indexed: true
+        stored: true
+      - name: author_id
+        type: string
+        indexed: true
+        stored: true
+      - name: published_date
+        type: datetime
+        indexed: true
+        stored: true
+    options:
+      tokenizer: smart
+      case_sensitive: false
+
+computed_fields:
+  - name: price_range
+    expression: "IF(price < 50, 'low', IF(price < 200, 'medium', 'high'))"
+    type: string
+
+  - name: full_name
+    expression: "CONCAT(first_name, ' ', last_name)"
+    type: string
+
+query_planning_pipelines:
+  - name: default_pipeline
+    steps:
+      - "query_rewriting"
+      - "synonym_expansion"
+      - "spell_correction"
+      - "intent_detection"
+      - "ranking_adjustment"
+    enabled: true
+
+  - name: admin_pipeline
+    steps:
+      - "debug_logging"
+      - "privilege_checking"
+      - "full_text_search_override"
+    enabled: false
