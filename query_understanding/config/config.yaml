@@ -1,4 +1,4 @@
-indexSchemas:
+index_schemas:
   - name: products
     fields:
       - name: id
@@ -51,7 +51,7 @@ indexSchemas:
       tokenizer: smart
       case_sensitive: false
 
-computedFields:
+computed_fields:
   - name: price_range
     expression: "IF(price < 50, 'low', IF(price < 200, 'medium', 'high'))"
     type: string
@@ -60,7 +60,7 @@ computedFields:
     expression: "CONCAT(first_name, ' ', last_name)"
     type: string
 
-queryPlanningPipelines:
+query_planning_pipelines:
   - name: default_pipeline
     steps:
       - "query_rewriting"

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 
 // Helper function to create a temporary config file
 func createTempConfigFile(t *testing.T, content string) (string, func()) {
-	tmpFile, err := ioutil.TempFile("", "config_test_*.yaml")
+	tmpFile, err := os.CreateTemp("", "config_test_*.yaml")
 	assert.NoError(t, err)
 
 	_, err = tmpFile.WriteString(content)

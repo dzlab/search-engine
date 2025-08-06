@@ -31,7 +31,7 @@ type QueryPlanningPipeline struct {
 
 // Configuration is the root structure for the entire service configuration.
 type Configuration struct {
-	IndexSchemas           []IndexSchema           `yaml:"indexSchemas"`
-	ComputedFields         []ComputedField         `yaml:"computedFields"`
-	QueryPlanningPipelines []QueryPlanningPipeline `yaml:"queryPlanningPipelines"`
+	IndexSchemas           []IndexSchema           `yaml:"index_schemas"`
+	ComputedFields         []ComputedField         `yaml:"computed_fields"`
+	QueryPlanningPipelines []QueryPlanningPipeline `yaml:"query_planning_pipelines"`
 }
