@@ -1,0 +1,41 @@
+# Binaries for programs and plugins
+*.exe
+*.darwin
+*.linux
+*.windows
+
+# Test binaries
+*_test
+
+# Output of `go build`
+*.out
+
+# Dependency directories (these are managed by Go modules)
+vendor/
+
+# Package files
+*.pkg
+
+# Editor swap files
+*~
+*.swp
+.DS_Store
+
+# IDE specific files
+.idea/
+.vscode/
+.history/
+*.iml
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables
+.env
+.env.*
+
+# Logs and other runtime files
+*.log
+tmp/
