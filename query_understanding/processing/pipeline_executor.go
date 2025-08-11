@@ -3,7 +3,7 @@ package processing
 import (
 	"fmt"
 
-	"query_understanding"
+	"query_understanding/config"
 )
 
 // PipelineExecutor is responsible for executing a sequence of query processing stages.
@@ -21,31 +21,26 @@ func NewPipelineExecutor(registry *StageRegistry) *PipelineExecutor {
 // ExecutePipeline processes a raw query string through a specified query planning pipeline.
 // It retrieves the pipeline definition from the provided IndexConfiguration and applies
 // each stage in sequence.
-func (pe *PipelineExecutor) ExecutePipeline(pipelineName string, rawQuery string, config *query_understanding.IndexConfiguration) (string, error) {
-	var pipeline *query_understanding.QueryPlanningPipeline
-	for i := range config.Pipelines {
-		if config.Pipelines[i].Name == pipelineName {
-			pipeline = &config.Pipelines[i]
-			break
-		}
-	}
-
+func (pe *PipelineExecutor) ExecutePipeline(pipeline *config.QueryPlanningPipeline, rawQuery string, stageConfigs map[string]map[string]interface{}) (string, error) {
 	if pipeline == nil {
-		return "", fmt.Errorf("query planning pipeline '%s' not found in configuration", pipelineName)
+		return "", fmt.Errorf("query planning pipeline cannot be nil")
 	}
 
 	currentQuery := rawQuery
-	for _, stageName := range pipeline.Stages {
+	for _, stageName := range pipeline.Steps {
 		stage, found := pe.registry.Get(stageName)
 		if !found {
-			return "", fmt.Errorf("query stage '%s' not found in registry for pipeline '%s'", stageName, pipelineName)
+			return "", fmt.Errorf("query stage '%s' not found in registry for pipeline '%s'", stageName, pipeline.Name)
 		}
 
-		// Placeholder for stage-specific configuration. For now, passing an empty map.
-		// In future, configuration could be resolved from config.yaml based on stageName.
-		processedQuery, err := stage.Process(currentQuery, make(map[string]interface{}))
+		configForStage := stageConfigs[stageName]
+		if configForStage == nil {
+			configForStage = make(map[string]interface{}) // Ensure it's not nil
+		}
+
+		processedQuery, err := stage.Process(currentQuery, configForStage)
 		if err != nil {
-			return "", fmt.Errorf("failed to execute stage '%s' in pipeline '%s': %w", stageName, pipelineName, err)
+			return "", fmt.Errorf("failed to execute stage '%s' in pipeline '%s': %w", stageName, pipeline.Name, err)
 		}
 		currentQuery = processedQuery
 	}
