@@ -147,8 +147,14 @@ func TestEvaluateComputedField(t *testing.T) {
 				if err != nil {
 					t.Errorf("EvaluateComputedField() unexpected error: %v", err)
 				}
-				if fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.expected) {
-					t.Errorf("EvaluateComputedField() got = %v (%T), want %v (%T)", got, got, tt.expected, tt.expected)
+				if !tt.expectError {
+					if err != nil {
+						t.Errorf("EvaluateComputedField() unexpected error: %v", err)
+					}
+					if !reflect.DeepEqual(got, tt.expected) {
+						t.Errorf("EvaluateComputedField() got = %v (%T), want %v (%T)", got, got, tt.expected, tt.expected)
+					}
+				}
 				}
 			}
 		})
