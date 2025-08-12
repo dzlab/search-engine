@@ -1,125 +1,104 @@
 package query_understanding
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"os"
+
+	"query_understanding/config"
+	"query_understanding/processing"
 
 	"gopkg.in/yaml.v2"
 )
 
-// DataType defines the type of data for an index field.
-type DataType int
+// stopwordsConfig is a helper struct to unmarshal the stopwords YAML file.
+type stopwordsConfig struct {
+	Stopwords []string `yaml:"stopwords"`
+}
 
-const (
-	STRING DataType = iota
-	INTEGER
-	FLOAT
-	BOOLEAN
-	DATETIME
+var (
+	stageRegistry    *processing.StageRegistry
+	pipelineExecutor *processing.PipelineExecutor
+	defaultStopwords []string
 )
 
-// IndexField defines the schema for a single field within an index.
-type IndexField struct {
-	FieldName    string   `json:"field_name" yaml:"field_name"`
-	DataType     DataType `json:"data_type" yaml:"data_type"`
-	Indexed      bool     `json:"indexed" yaml:"indexed"`
-	Stored       bool     `json:"stored" yaml:"stored"`
-	Sortable     bool     `json:"sortable" yaml:"sortable"`
-	Aggregatable bool     `json:"aggregatable" yaml:"aggregatable"`
-	Analyzer     string   `json:"analyzer" yaml:"analyzer"` // e.g., "standard", "keyword", "whitespace"
-}
+// init initializes the query understanding service components.
+func init() {
+	stageRegistry = processing.NewStageRegistry()
 
-// ComputedField defines a field whose value is derived from an expression based on other fields.
-type ComputedField struct {
-	FieldName  string `json:"field_name" yaml:"field_name"`
-	Expression string `json:"expression" yaml:"expression"` // e.g., "first_name + ' ' + last_name"
-}
-
-// IndexConfiguration holds the complete configuration for an index, including fields, computed fields, and pipelines.
-type IndexConfiguration struct {
-	IndexFields    []IndexField            `json:"index_fields" yaml:"index_fields"`
-	ComputedFields []ComputedField         `json:"computed_fields" yaml:"computed_fields"`
-	Pipelines      []QueryPlanningPipeline `json:"pipelines" yaml:"pipelines"`
-}
-
-// LoadIndexConfiguration loads index configuration from a YAML file.
-func LoadIndexConfiguration(filePath string) (*IndexConfiguration, error) {
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("configuration file not found: %s", filePath)
+	// Register core query processing stages
+	if err := stageRegistry.Register("lowercase", &processing.LowerCaseStage{}); err != nil {
+		log.Fatalf("Failed to register lowercase stage: %v", err)
+	}
+	if err := stageRegistry.Register("tokenize", &processing.TokenizeStage{}); err != nil {
+		log.Fatalf("Failed to register tokenize stage: %v", err)
 	}
 
-	data, err := ioutil.ReadFile(filePath)
+	// Load default stopwords
+	stopwordsFilePath := "config/default_stopwords.yaml"
+	data, err := os.ReadFile(stopwordsFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configuration file %s: %w", filePath, err)
+		log.Fatalf("Failed to read stopwords file %s: %v", stopwordsFilePath, err)
 	}
 
-	var config IndexConfiguration
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configuration file %s: %w", filePath, err)
+	var swConfig stopwordsConfig
+	if err := yaml.Unmarshal(data, &swConfig); err != nil {
+		log.Fatalf("Failed to unmarshal stopwords file %s: %v", stopwordsFilePath, err)
+	}
+	defaultStopwords = swConfig.Stopwords
+
+	// Register RemoveStopwordsStage
+	// Note: The stopwords are passed as config during pipeline execution if needed,
+	//       but here we simply register the stage itself.
+	if err := stageRegistry.Register("remove_stopwords", &processing.RemoveStopwordsStage{}); err != nil {
+		log.Fatalf("Failed to register remove_stopwords stage: %v", err)
 	}
 
-	return &config, nil
+	if err := stageRegistry.Register("synonym_expansion", &processing.SynonymExpansionStage{}); err != nil {
+		log.Fatalf("Failed to register synonym_expansion stage: %v", err)
+	}
+
+	pipelineExecutor = processing.NewPipelineExecutor(stageRegistry)
 }
 
-// Validate performs basic validation on the IndexConfiguration.
-func (ic *IndexConfiguration) Validate() error {
-	fieldNames := make(map[string]bool)
-
-	// Validate IndexFields
-	for _, field := range ic.IndexFields {
-		if field.FieldName == "" {
-			return errors.New("index field name cannot be empty")
-		}
-		if fieldNames[field.FieldName] {
-			return fmt.Errorf("duplicate index field name found: %s", field.FieldName)
-		}
-		fieldNames[field.FieldName] = true
-
-		// Basic data type validation
-		// Assuming DATETIME is the last valid enum value.
-		if field.DataType < STRING || field.DataType > DATETIME {
-			return fmt.Errorf("invalid data type '%d' for field '%s'", field.DataType, field.FieldName)
-		}
-		// Further validation for analyzer etc. could go here
+// LoadConfiguration loads the main service configuration from a YAML file.
+func LoadConfiguration(filePath string) (*config.Configuration, error) {
+	cfg, err := config.LoadConfig(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load main configuration: %w", err)
 	}
-
-	// Validate ComputedFields
-	for _, field := range ic.ComputedFields {
-		if field.FieldName == "" {
-			return errors.New("computed field name cannot be empty")
-		}
-		if fieldNames[field.FieldName] {
-			return fmt.Errorf("duplicate field name (index or computed) found: %s", field.FieldName)
-		}
-		fieldNames[field.FieldName] = true
-		if field.Expression == "" {
-			return fmt.Errorf("computed field '%s' must have an expression", field.FieldName)
-		}
-	}
-
-	// Validate Pipelines
-	pipelineNames := make(map[string]bool)
-	for _, pipeline := range ic.Pipelines {
-		if pipeline.Name == "" {
-			return errors.New("query planning pipeline name cannot be empty")
-		}
-		if pipelineNames[pipeline.Name] {
-			return fmt.Errorf("duplicate query planning pipeline name found: %s", pipeline.Name)
-		}
-		pipelineNames[pipeline.Name] = true
-		if len(pipeline.Stages) == 0 {
-			return fmt.Errorf("query planning pipeline '%s' must have at least one stage", pipeline.Name)
-		}
-	}
-
-	return nil
+	return cfg, nil
 }
 
-// QueryPlanningPipeline represents a sequence of stages for query processing.
-// This is a placeholder for future implementation.
-type QueryPlanningPipeline struct {
-	Name   string   `json:"name" yaml:"name"`     // Name of the pipeline
-	Stages []string `json:"stages" yaml:"stages"` // Example: "tokenize", "lowercase", "remove_stopwords", "synonym_expansion"
+// ProcessClientQuery is the main entry point for processing a raw client query.
+// It takes the raw query string and the specific service configuration,
+// then processes it through the "default_pipeline" or a pipeline specified by the configuration.
+func ProcessClientQuery(rawQuery string, cfg *config.Configuration) (string, error) {
+	pipelineName := "default_pipeline" // For simplicity, assume default_pipeline
+
+	var defaultPipeline *config.QueryPlanningPipeline
+	for i := range cfg.QueryPlanningPipelines {
+		if cfg.QueryPlanningPipelines[i].Name == pipelineName {
+			defaultPipeline = &cfg.QueryPlanningPipelines[i]
+			break
+		}
+	}
+
+	if defaultPipeline == nil {
+		return "", fmt.Errorf("query planning pipeline '%s' not found in the provided configuration", pipelineName)
+	}
+
+	// Prepare stage-specific configurations.
+	stageConfigs := make(map[string]map[string]interface{})
+	stageConfigs["remove_stopwords"] = map[string]interface{}{
+		"stopwords": defaultStopwords,
+	}
+
+	// Execute the pipeline using the PipelineExecutor
+	processedQuery, err := pipelineExecutor.ExecutePipeline(defaultPipeline, rawQuery, stageConfigs)
+	if err != nil {
+		return "", fmt.Errorf("failed to process query with pipeline '%s': %w", pipelineName, err)
+	}
+
+	return processedQuery, nil
 }
