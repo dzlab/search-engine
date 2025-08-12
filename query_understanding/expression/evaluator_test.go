@@ -72,8 +72,7 @@ func TestEvaluateComputedField(t *testing.T) {
 			},
 			data:        map[string]interface{}{},
 			expected:    nil,
-			expectError: true,
-		},
+			expectError: true, // The expression fails because 'value2' is not provided in the data map.
 		{
 			name: "Return Original Value (Self-Reference)",
 			field: ComputedField{
