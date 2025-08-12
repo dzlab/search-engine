@@ -112,7 +112,7 @@ func TestEvaluateComputedField(t *testing.T) {
 			name: "Complex Conditionals",
 			field: ComputedField{
 				Name:       "discounted_price",
-				Expression: `if quantity > 10 then price * 0.9 else price`,
+				Expression: `quantity > 10 ? price * 0.9 : price`,
 			},
 			data: map[string]interface{}{
 				"quantity": 12,
@@ -125,7 +125,7 @@ func TestEvaluateComputedField(t *testing.T) {
 			name: "Complex Conditionals - No Discount",
 			field: ComputedField{
 				Name:       "discounted_price",
-				Expression: `if quantity > 10 then price * 0.9 else price`,
+				Expression: `quantity > 10 ? price * 0.9 : price`,
 			},
 			data: map[string]interface{}{
 				"quantity": 5,
