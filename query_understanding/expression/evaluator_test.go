@@ -1,7 +1,7 @@
 package expression
 
 import (
-	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -73,6 +73,7 @@ func TestEvaluateComputedField(t *testing.T) {
 			data:        map[string]interface{}{},
 			expected:    nil,
 			expectError: true, // The expression fails because 'value2' is not provided in the data map.
+		},
 		{
 			name: "Return Original Value (Self-Reference)",
 			field: ComputedField{
@@ -154,7 +155,6 @@ func TestEvaluateComputedField(t *testing.T) {
 					if !reflect.DeepEqual(got, tt.expected) {
 						t.Errorf("EvaluateComputedField() got = %v (%T), want %v (%T)", got, got, tt.expected, tt.expected)
 					}
-				}
 				}
 			}
 		})
