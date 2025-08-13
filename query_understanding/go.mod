@@ -3,6 +3,7 @@ module query_understanding
 go 1.21
 
 require (
+	github.com/expr-lang/expr v1.17.5
 	github.com/stretchr/testify v1.10.0
 	gopkg.in/yaml.v2 v2.4.0
 )
